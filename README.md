@@ -1,11 +1,13 @@
 # CV Fit Checker
 
-Paste a job description, upload a CV (PDF or Word), and get a match score plus specific tailoring advice powered by Claude.
+Paste a job description, upload a CV (PDF or Word), and get a match score plus specific tailoring advice powered by Claude. Sign in with Clerk; each analysis is saved to your private history.
 
 ## Prerequisites
 
 - Node.js 18+
 - An [Anthropic API key](https://console.anthropic.com/)
+- A [Clerk](https://dashboard.clerk.com/) application (Next.js)
+- A Postgres database ([Neon](https://console.neon.tech/) works well on Vercel)
 
 ## Setup
 
@@ -15,47 +17,56 @@ Paste a job description, upload a CV (PDF or Word), and get a match score plus s
 npm install
 ```
 
-2. Copy the env example and add your key:
+2. Copy the env example and fill in secrets:
 
 ```bash
 cp .env.local.example .env.local
 ```
 
-Edit `.env.local` and set:
+| Variable | Purpose |
+|----------|---------|
+| `ANTHROPIC_API_KEY` | Server-side Claude calls (never sent to the browser) |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` | Auth |
+| `DATABASE_URL` | Postgres connection string for analysis history |
 
+In Clerk, allow redirects for `http://localhost:3000` and your Vercel domain.
+
+3. Create the database tables:
+
+```bash
+npx prisma migrate dev --name init
 ```
-ANTHROPIC_API_KEY=sk-ant-...
-```
 
-`ANTHROPIC_API_KEY` is read only on the server (`app/api/analyze/route.ts`). It is never exposed to the browser.
-
-3. Start the dev server:
+4. Start the dev server:
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000). You’ll be prompted to sign in.
 
 ## How it works
 
-1. The form on `app/page.tsx` POSTs the job description and CV file to `/api/analyze`.
-2. `lib/parseFile.ts` extracts text with **unpdf** (PDF; serverless-safe PDF.js build) or **mammoth** (.docx).
-3. The API route sends both texts to Claude (`claude-sonnet-4-6`) and returns JSON:
-   - `score` (0–100)
-   - `verdict`
-   - `strengths[]`
-   - `gaps[]`
-   - `missingKeywords[]`
-   - `tailoringTips[]`
-
-Scanned / image-only PDFs return a clear error instead of crashing — they have no extractable text.
-
-Uploads are capped at **5 MB**. The analyze route also applies a simple per-IP rate limit (10 requests / minute) to reduce casual Anthropic key abuse on a public deploy.
+1. Clerk protects `/`, `/history`, and `/api/analyze`.
+2. The form POSTs the job description and CV to `/api/analyze`.
+3. `lib/parseFile.ts` extracts text with **unpdf** (PDF) or **mammoth** (.docx).
+4. Claude returns `{ score, verdict, strengths, gaps, missingKeywords, tailoringTips }`.
+5. The result is stored in Postgres (JD + score/advice + CV filename — **not** raw CV text) and listed under **History**.
 
 ## Deploy (Vercel)
 
-1. Push this repo to GitHub.
-2. Import the project in Vercel.
-3. Add `ANTHROPIC_API_KEY` in Project Settings → Environment Variables.
-4. Deploy.
+1. Push to GitHub and import in Vercel.
+2. Add the same env vars in Project Settings → Environment Variables.
+3. Set the build command to include Prisma generate, e.g.:
+
+```bash
+npx prisma generate && next build
+```
+
+4. Run migrations against production once:
+
+```bash
+npx prisma migrate deploy
+```
+
+(Or use `prisma db push` for a quick first schema sync.)

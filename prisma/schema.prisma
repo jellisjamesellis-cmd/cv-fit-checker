@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// One saved CV-vs-JD analysis for a signed-in Clerk user.
+model Analysis {
+  id              String   @id @default(cuid())
+  userId          String
+  cvFileName      String
+  jobTitlePreview String
+  jobDescription  String   @db.Text
+  score           Int
+  verdict         String
+  strengths       String[]
+  gaps            String[]
+  missingKeywords String[]
+  tailoringTips   String[]
+  createdAt       DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+}

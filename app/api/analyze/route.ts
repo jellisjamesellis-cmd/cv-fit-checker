@@ -1,5 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  AnalysisResult,
+  jobTitlePreviewFromJd,
+} from "@/lib/analysis";
+import { prisma } from "@/lib/db";
 import {
   parseFile,
   ScannedPdfError,
@@ -10,15 +16,6 @@ import {
 import { checkRateLimit, clientKeyFromRequest } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
-
-type AnalysisResult = {
-  score: number;
-  verdict: string;
-  strengths: string[];
-  gaps: string[];
-  missingKeywords: string[];
-  tailoringTips: string[];
-};
 
 const MAX_JD_CHARS = 20_000;
 
@@ -71,7 +68,15 @@ function extractJson(text: string): AnalysisResult {
 
 export async function POST(request: NextRequest) {
   try {
-    const rate = checkRateLimit(clientKeyFromRequest(request));
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Please sign in to analyze a CV." },
+        { status: 401 }
+      );
+    }
+
+    const rate = checkRateLimit(userId || clientKeyFromRequest(request));
     if (!rate.allowed) {
       return NextResponse.json(
         {
@@ -169,7 +174,23 @@ export async function POST(request: NextRequest) {
     }
 
     const result = extractJson(textBlock.text);
-    return NextResponse.json(result);
+
+    const saved = await prisma.analysis.create({
+      data: {
+        userId,
+        cvFileName: file.name,
+        jobTitlePreview: jobTitlePreviewFromJd(jobDescription),
+        jobDescription,
+        score: result.score,
+        verdict: result.verdict,
+        strengths: result.strengths,
+        gaps: result.gaps,
+        missingKeywords: result.missingKeywords,
+        tailoringTips: result.tailoringTips,
+      },
+    });
+
+    return NextResponse.json({ ...result, id: saved.id });
   } catch (error) {
     console.error("Analyze error:", error);
     const message =
