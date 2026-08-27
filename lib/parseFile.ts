@@ -36,24 +36,19 @@ function getExtension(filename: string): string {
 }
 
 async function extractPdfText(buffer: Buffer): Promise<string> {
-  // pdf-parse v2 exposes a PDFParse class (the default export is no longer a function).
-  const { PDFParse } = await import("pdf-parse");
-  const parser = new PDFParse({ data: buffer });
+  // unpdf ships a serverless PDF.js build that does not require browser DOM
+  // APIs (DOMMatrix, canvas, etc.) — required for Vercel Node serverless.
+  const { extractText, getDocumentProxy } = await import("unpdf");
+  const pdf = await getDocumentProxy(new Uint8Array(buffer));
+  const { text } = await extractText(pdf, { mergePages: true });
+  const normalized = (Array.isArray(text) ? text.join("\n") : String(text || ""))
+    .trim();
 
-  try {
-    const result = await parser.getText();
-    const text = (result.text || "")
-      .replace(/\n\s*--\s*\d+\s+of\s+\d+\s*--\s*\n?/g, "\n")
-      .trim();
-
-    if (!text) {
-      throw new ScannedPdfError();
-    }
-
-    return text;
-  } finally {
-    await parser.destroy().catch(() => undefined);
+  if (!normalized) {
+    throw new ScannedPdfError();
   }
+
+  return normalized;
 }
 
 async function extractDocxText(buffer: Buffer): Promise<string> {
