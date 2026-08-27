@@ -6,7 +6,19 @@ const isProtectedRoute = createRouteMatcher([
   "/api/analyze(.*)",
 ]);
 
+const hasClerkKeys = Boolean(
+  process.env.CLERK_SECRET_KEY &&
+    (process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ||
+      process.env.CLERK_PUBLISHABLE_KEY)
+);
+
 export default clerkMiddleware(async (auth, request) => {
+  // Skip auth enforcement when keys are missing so `next build` / misconfigured
+  // previews don't crash; the UI shows a setup message instead.
+  if (!hasClerkKeys) {
+    return;
+  }
+
   if (isProtectedRoute(request)) {
     await auth.protect();
   }

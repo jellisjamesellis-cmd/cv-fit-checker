@@ -56,14 +56,22 @@ Open [http://localhost:3000](http://localhost:3000). You’ll be prompted to sig
 ## Deploy (Vercel)
 
 1. Push to GitHub and import in Vercel.
-2. Add the same env vars in Project Settings → Environment Variables.
-3. Set the build command to include Prisma generate, e.g.:
+2. Add these env vars in **Project Settings → Environment Variables** for
+   **Production** and **Preview** (Preview builds fail or show a setup page without them):
+
+   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+   - `CLERK_SECRET_KEY`
+   - `DATABASE_URL`
+   - `ANTHROPIC_API_KEY`
+
+3. In Clerk, add your Vercel URLs under allowed redirect / origins.
+4. Set the build command to include Prisma generate (already in `npm run build`):
 
 ```bash
 npx prisma generate && next build
 ```
 
-4. Run migrations against production once:
+5. Run migrations against production once:
 
 ```bash
 npx prisma migrate deploy

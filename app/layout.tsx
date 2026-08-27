@@ -15,13 +15,49 @@ export const metadata: Metadata = {
     "Paste a job description, upload your CV, and get a match score with tailoring advice.",
 };
 
+// Avoid static prerender of Clerk UI during `next build` when env keys are absent
+// (e.g. Vercel Preview before secrets are configured).
+export const dynamic = "force-dynamic";
+
+function clerkPublishableKey(): string {
+  return (
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ||
+    process.env.CLERK_PUBLISHABLE_KEY ||
+    ""
+  );
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const publishableKey = clerkPublishableKey();
+
+  if (!publishableKey) {
+    return (
+      <html lang="en">
+        <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
+          <main className="mx-auto max-w-xl px-4 py-16">
+            <h1 className="text-xl font-semibold">Clerk is not configured</h1>
+            <p className="mt-3 text-sm text-slate-600">
+              Add{" "}
+              <code className="rounded bg-slate-200 px-1">
+                NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+              </code>{" "}
+              and{" "}
+              <code className="rounded bg-slate-200 px-1">CLERK_SECRET_KEY</code>{" "}
+              in the Vercel project environment variables (Preview and
+              Production), then redeploy.
+            </p>
+          </main>
+        </body>
+      </html>
+    );
+  }
+
   return (
-    <ClerkProvider>
+    <ClerkProvider publishableKey={publishableKey}>
       <html lang="en">
         <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
           <header className="border-b border-slate-200 bg-white">
