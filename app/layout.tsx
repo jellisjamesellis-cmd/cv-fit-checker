@@ -4,6 +4,7 @@ import {
   SignedIn,
   SignedOut,
   SignInButton,
+  SignUpButton,
   UserButton,
 } from "@clerk/nextjs";
 import Link from "next/link";
@@ -57,9 +58,9 @@ export default function RootLayout({
   }
 
   return (
-    <ClerkProvider publishableKey={publishableKey}>
-      <html lang="en">
-        <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
+    <html lang="en">
+      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
+        <ClerkProvider publishableKey={publishableKey}>
           <header className="border-b border-slate-200 bg-white">
             <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
               <nav className="flex items-center gap-4 text-sm">
@@ -83,11 +84,19 @@ export default function RootLayout({
                   <SignInButton mode="modal">
                     <button
                       type="button"
-                      className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+                      className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-slate-50"
                     >
                       Sign in
                     </button>
                   </SignInButton>
+                  <SignUpButton mode="modal">
+                    <button
+                      type="button"
+                      className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+                    >
+                      Sign up
+                    </button>
+                  </SignUpButton>
                 </SignedOut>
                 <SignedIn>
                   <UserButton afterSignOutUrl="/" />
@@ -96,8 +105,8 @@ export default function RootLayout({
             </div>
           </header>
           {children}
-        </body>
-      </html>
-    </ClerkProvider>
+        </ClerkProvider>
+      </body>
+    </html>
   );
 }
