@@ -66,14 +66,6 @@ function extractJson(text: string): AnalysisResult {
 
 export async function POST(request: NextRequest) {
   try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "ANTHROPIC_API_KEY is not configured on the server." },
-        { status: 500 }
-      );
-    }
-
     const formData = await request.formData();
     const jobDescription = String(formData.get("jobDescription") || "").trim();
     const file = formData.get("cv");
@@ -107,6 +99,14 @@ export async function POST(request: NextRequest) {
           ? parseError.message
           : "Failed to extract text from the uploaded file.";
       return NextResponse.json({ error: message }, { status: 422 });
+    }
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "ANTHROPIC_API_KEY is not configured on the server." },
+        { status: 500 }
+      );
     }
 
     const anthropic = new Anthropic({ apiKey });
