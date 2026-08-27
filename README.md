@@ -40,7 +40,7 @@ Open [http://localhost:3000](http://localhost:3000).
 ## How it works
 
 1. The form on `app/page.tsx` POSTs the job description and CV file to `/api/analyze`.
-2. `lib/parseFile.ts` extracts text with **pdf-parse** (PDF) or **mammoth** (.docx).
+2. `lib/parseFile.ts` extracts text with **unpdf** (PDF; serverless-safe PDF.js build) or **mammoth** (.docx).
 3. The API route sends both texts to Claude (`claude-sonnet-4-6`) and returns JSON:
    - `score` (0–100)
    - `verdict`
