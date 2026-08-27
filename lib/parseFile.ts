@@ -18,6 +18,18 @@ export class UnsupportedFileError extends Error {
   }
 }
 
+export class FileTooLargeError extends Error {
+  constructor(
+    message = "CV file is too large. Please upload a file under 5 MB."
+  ) {
+    super(message);
+    this.name = "FileTooLargeError";
+  }
+}
+
+/** Max CV upload size (5 MB). Checked before buffering into memory. */
+export const MAX_CV_BYTES = 5 * 1024 * 1024;
+
 function getExtension(filename: string): string {
   const parts = filename.toLowerCase().split(".");
   return parts.length > 1 ? parts[parts.length - 1] : "";
@@ -27,16 +39,21 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
   // pdf-parse v2 exposes a PDFParse class (the default export is no longer a function).
   const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data: buffer });
-  const result = await parser.getText();
-  const text = (result.text || "")
-    .replace(/\n\s*--\s*\d+\s+of\s+\d+\s*--\s*\n?/g, "\n")
-    .trim();
 
-  if (!text) {
-    throw new ScannedPdfError();
+  try {
+    const result = await parser.getText();
+    const text = (result.text || "")
+      .replace(/\n\s*--\s*\d+\s+of\s+\d+\s*--\s*\n?/g, "\n")
+      .trim();
+
+    if (!text) {
+      throw new ScannedPdfError();
+    }
+
+    return text;
+  } finally {
+    await parser.destroy().catch(() => undefined);
   }
-
-  return text;
 }
 
 async function extractDocxText(buffer: Buffer): Promise<string> {
@@ -53,6 +70,10 @@ async function extractDocxText(buffer: Buffer): Promise<string> {
 }
 
 export async function parseFile(file: File): Promise<string> {
+  if (file.size > MAX_CV_BYTES) {
+    throw new FileTooLargeError();
+  }
+
   const extension = getExtension(file.name);
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);

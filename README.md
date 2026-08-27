@@ -51,6 +51,8 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Scanned / image-only PDFs return a clear error instead of crashing — they have no extractable text.
 
+Uploads are capped at **5 MB**. The analyze route also applies a simple per-IP rate limit (10 requests / minute) to reduce casual Anthropic key abuse on a public deploy.
+
 ## Deploy (Vercel)
 
 1. Push this repo to GitHub.

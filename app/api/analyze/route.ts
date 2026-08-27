@@ -4,7 +4,10 @@ import {
   parseFile,
   ScannedPdfError,
   UnsupportedFileError,
+  FileTooLargeError,
+  MAX_CV_BYTES,
 } from "@/lib/parseFile";
+import { checkRateLimit, clientKeyFromRequest } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -16,6 +19,8 @@ type AnalysisResult = {
   missingKeywords: string[];
   tailoringTips: string[];
 };
+
+const MAX_JD_CHARS = 20_000;
 
 const SYSTEM_PROMPT = `You are an expert CV / resume reviewer and career coach.
 Compare a candidate's CV against a job description and return ONLY valid JSON (no markdown, no commentary) matching this exact shape:
@@ -66,6 +71,19 @@ function extractJson(text: string): AnalysisResult {
 
 export async function POST(request: NextRequest) {
   try {
+    const rate = checkRateLimit(clientKeyFromRequest(request));
+    if (!rate.allowed) {
+      return NextResponse.json(
+        {
+          error: `Too many requests. Please try again in ${rate.retryAfterSeconds} seconds.`,
+        },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rate.retryAfterSeconds) },
+        }
+      );
+    }
+
     const formData = await request.formData();
     const jobDescription = String(formData.get("jobDescription") || "").trim();
     const file = formData.get("cv");
@@ -77,10 +95,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (jobDescription.length > MAX_JD_CHARS) {
+      return NextResponse.json(
+        {
+          error: `Job description is too long. Please keep it under ${MAX_JD_CHARS.toLocaleString()} characters.`,
+        },
+        { status: 400 }
+      );
+    }
+
     if (!(file instanceof File) || file.size === 0) {
       return NextResponse.json(
         { error: "Please upload a CV as a .pdf or .docx file." },
         { status: 400 }
+      );
+    }
+
+    if (file.size > MAX_CV_BYTES) {
+      return NextResponse.json(
+        { error: "CV file is too large. Please upload a file under 5 MB." },
+        { status: 413 }
       );
     }
 
@@ -93,6 +127,9 @@ export async function POST(request: NextRequest) {
       }
       if (parseError instanceof UnsupportedFileError) {
         return NextResponse.json({ error: parseError.message }, { status: 400 });
+      }
+      if (parseError instanceof FileTooLargeError) {
+        return NextResponse.json({ error: parseError.message }, { status: 413 });
       }
       const message =
         parseError instanceof Error
