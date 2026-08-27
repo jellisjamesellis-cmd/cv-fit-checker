@@ -151,6 +151,7 @@ export default function HomePage() {
 
         {error ? (
           <div
+            id="form-error"
             role="alert"
             className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800"
           >
