@@ -1,3 +1,5 @@
+import { NextResponse } from "next/server";
+import type { NextFetchEvent, NextMiddleware, NextRequest } from "next/server";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 const isProtectedRoute = createRouteMatcher([
@@ -6,23 +8,42 @@ const isProtectedRoute = createRouteMatcher([
   "/api/analyze(.*)",
 ]);
 
-const hasClerkKeys = Boolean(
-  process.env.CLERK_SECRET_KEY &&
-    (process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ||
-      process.env.CLERK_PUBLISHABLE_KEY)
-);
+function hasClerkKeys(): boolean {
+  return Boolean(
+    process.env.CLERK_SECRET_KEY &&
+      (process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ||
+        process.env.CLERK_PUBLISHABLE_KEY)
+  );
+}
 
-export default clerkMiddleware(async (auth, request) => {
-  // Skip auth enforcement when keys are missing so `next build` / misconfigured
-  // previews don't crash; the UI shows a setup message instead.
-  if (!hasClerkKeys) {
-    return;
+/**
+ * Do not call `clerkMiddleware()` at module load — it throws on the Edge
+ * runtime when CLERK_SECRET_KEY is missing (MIDDLEWARE_INVOCATION_FAILED).
+ * Lazily construct the Clerk handler only when keys are present.
+ */
+let clerkHandler: NextMiddleware | null = null;
+
+function getClerkHandler(): NextMiddleware {
+  if (!clerkHandler) {
+    clerkHandler = clerkMiddleware(async (auth, request) => {
+      if (isProtectedRoute(request)) {
+        await auth.protect();
+      }
+    });
+  }
+  return clerkHandler;
+}
+
+export default function middleware(
+  request: NextRequest,
+  event: NextFetchEvent
+) {
+  if (!hasClerkKeys()) {
+    return NextResponse.next();
   }
 
-  if (isProtectedRoute(request)) {
-    await auth.protect();
-  }
-});
+  return getClerkHandler()(request, event);
+}
 
 export const config = {
   matcher: [
