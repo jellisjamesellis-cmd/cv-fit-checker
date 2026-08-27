@@ -1,55 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
+import type { AnalysisResult } from "@/lib/analysis";
+import { AnalysisResultView } from "@/components/AnalysisResultView";
 
-type AnalysisResult = {
-  score: number;
-  verdict: string;
-  strengths: string[];
-  gaps: string[];
-  missingKeywords: string[];
-  tailoringTips: string[];
-};
-
-function ResultList({
-  title,
-  items,
-  emptyLabel,
-}: {
-  title: string;
-  items: string[];
-  emptyLabel: string;
-}) {
-  return (
-    <section className="space-y-2">
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-        {title}
-      </h3>
-      {items.length === 0 ? (
-        <p className="text-sm text-slate-500">{emptyLabel}</p>
-      ) : (
-        <ul className="list-disc space-y-1 pl-5 text-sm text-slate-800">
-          {items.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function scoreColor(score: number): string {
-  if (score >= 75) return "text-emerald-700";
-  if (score >= 50) return "text-amber-700";
-  return "text-rose-700";
-}
+type AnalyzeResponse = AnalysisResult & { id?: string };
 
 export default function HomePage() {
   const [jobDescription, setJobDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [result, setResult] = useState<AnalyzeResponse | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -84,7 +47,7 @@ export default function HomePage() {
         return;
       }
 
-      setResult(data as AnalysisResult);
+      setResult(data as AnalyzeResponse);
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -101,7 +64,8 @@ export default function HomePage() {
         </h1>
         <p className="max-w-2xl text-base text-slate-600">
           Paste a job description, upload your CV as PDF or Word, and get a
-          match score plus concrete tailoring advice.
+          match score plus concrete tailoring advice. Results are saved to your
+          history when you&apos;re signed in.
         </p>
       </header>
 
@@ -169,37 +133,20 @@ export default function HomePage() {
       </form>
 
       {result ? (
-        <div className="mt-8 space-y-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="space-y-1">
-            <p className={`text-4xl font-semibold ${scoreColor(result.score)}`}>
-              {result.score}
-              <span className="text-lg font-normal text-slate-500"> / 100</span>
+        <div className="mt-8 space-y-4">
+          <AnalysisResultView result={result} />
+          {result.id ? (
+            <p className="text-sm text-slate-600">
+              Saved to{" "}
+              <Link
+                href={`/history/${result.id}`}
+                className="font-medium text-slate-900 underline"
+              >
+                your history
+              </Link>
+              .
             </p>
-            <p className="text-base text-slate-800">{result.verdict}</p>
-          </div>
-
-          <div className="grid gap-6 sm:grid-cols-2">
-            <ResultList
-              title="Strengths"
-              items={result.strengths}
-              emptyLabel="No strengths identified."
-            />
-            <ResultList
-              title="Gaps"
-              items={result.gaps}
-              emptyLabel="No gaps identified."
-            />
-            <ResultList
-              title="Missing keywords"
-              items={result.missingKeywords}
-              emptyLabel="No missing keywords."
-            />
-            <ResultList
-              title="Tailoring tips"
-              items={result.tailoringTips}
-              emptyLabel="No tips available."
-            />
-          </div>
+          ) : null}
         </div>
       ) : null}
     </main>
